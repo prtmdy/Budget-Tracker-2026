@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Budget Tracker 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3348;
+    --accent: #6c8cff;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --cat-food: #34d399;
+    --cat-utilities: #fbbf24;
+    --cat-healthcare: #f87171;
+    --cat-rent: #6c8cff;
+    --cat-misc: #94a3b8;
+    --cat-transport: #fb923c;
+    --cat-shopping: #f472b6;
+    --cat-entertainment: #a78bfa;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .shell { display: flex; min-height: 100vh; }
+
+  .sidebar {
+    width: 220px; flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 24px 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+
+  .logo {
+    padding: 0 20px 24px;
+    font-size: 16px; font-weight: 700;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .logo span { color: var(--text); }
+
+  .nav-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted);
+    padding: 0 20px 8px;
+  }
+
+  .nav-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px; cursor: pointer;
+    color: var(--muted); font-size: 13px; font-weight: 500;
+    border: none; background: none; width: 100%; text-align: left;
+    transition: all 0.15s;
+  }
+  .nav-btn:hover { color: var(--text); background: rgba(108,140,255,.07); }
+  .nav-btn.active { color: var(--accent); background: rgba(108,140,255,.12); border-right: 2px solid var(--accent); }
+  .nav-btn .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .main { flex: 1; overflow-x: hidden; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 10;
+  }
+
+  .topbar-title { font-size: 15px; font-weight: 600; }
+  .topbar-right { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text); transition: all 0.15s; font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #5a7af0; border-color: #5a7af0; color: #fff; }
+  .btn-green { background: rgba(52,211,153,.15); border-color: var(--green); color: var(--green); }
+  .btn-green:hover { background: rgba(52,211,153,.25); }
+
+  /* ── Page views ── */
+  .page { display: none; padding: 28px; }
+  .page.active { display: block; }
+
+  /* ── KPI cards ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.amber { color: var(--amber); }
+  .kpi-value.blue { color: var(--accent); }
+
+  /* ── Charts grid ── */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-wide { grid-column: 1 / -1; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .chart-card h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: .6px; }
+  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap-tall { position: relative; height: 320px; }
+
+  /* ── Category legend ── */
+  .cat-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .cat-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted); padding: 3px 8px;
+    border-radius: 99px; border: 1px solid var(--border);
+  }
+  .cat-pill .swatch { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ── Table ── */
+  .table-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 24px;
+  }
+  .table-toolbar {
+    display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .table-toolbar h3 { font-size: 13px; font-weight: 600; margin-right: auto; }
+
+  input[type=text], input[type=number], input[type=date], select {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius-sm);
+    padding: 7px 10px; font-size: 13px; font-family: inherit;
+    outline: none; transition: border 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid rgba(46,51,72,.5); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(108,140,255,.04); }
+
+  .cat-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 500;
+  }
+
+  .mode-badge {
+    font-size: 11px; padding: 2px 7px; border-radius: 4px;
+    font-weight: 500;
+  }
+  .mode-online { background: rgba(108,140,255,.15); color: var(--accent); }
+  .mode-cash { background: rgba(52,211,153,.12); color: var(--green); }
+
+  .amt { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .del-btn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; font-size: 15px; }
+  .del-btn:hover { color: var(--red); background: rgba(248,113,113,.12); }
+  .edit-btn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; font-size: 14px; }
+  .edit-btn:hover { color: var(--accent); background: rgba(108,140,255,.12); }
+
+  /* ── Add expense form ── */
+  .add-form {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 24px;
+  }
+  .add-form h3 { font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; align-items: end; }
+  .form-group label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+  .form-group input, .form-group select { width: 100%; }
+
+  /* ── Progress bar ── */
+  .progress-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+
+  /* ── Alert ── */
+  .alert { display: none; padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
+  .alert.warn { background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: var(--amber); display: flex; align-items: center; gap: 8px; }
+  .alert.danger { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3); color: var(--red); display: flex; align-items: center; gap: 8px; }
+
+  /* ── Budget setting ── */
+  .budget-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .budget-row label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .budget-row input { width: 130px; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 12px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500; z-index: 999;
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s ease; pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.6); z-index: 100;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; width: 480px; max-width: 95vw;
+  }
+  .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 18px; }
+  .modal .form-row { grid-template-columns: 1fr 1fr; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+  /* ── Scrollable table ── */
+  .table-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+
+  /* ── Donut center label ── */
+  .donut-wrap { position: relative; }
+  .donut-center {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+  }
+  .donut-center .big { font-size: 20px; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+  .donut-center .small { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Summary table on dashboard ── */
+  .summary-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 24px;
+  }
+  .summary-card th { background: var(--surface2); }
+
+  @media (max-width: 860px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .chart-wide { grid-column: 1; }
+    .form-row { grid-template-columns: 1fr 1fr; }
+    .sidebar { width: 180px; }
+  }
+  @media (max-width: 600px) {
+    .sidebar { display: none; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- Edit modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>Edit Expense</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="eDate" style="width:100%"/>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="eCat" style="width:100%"></select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Description</label>
+        <input type="text" id="eDesc" style="width:100%"/>
+      </div>
+      <div class="form-group">
+        <label>Amount (₹)</label>
+        <input type="number" id="eAmt" style="width:100%"/>
+      </div>
+      <div class="form-group">
+        <label>Mode</label>
+        <select id="eMode" style="width:100%">
+          <option>Online</option><option>Cash</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">💰 <span>Tracker</span> 2026</div>
+    <div class="nav-label">Views</div>
+    <button class="nav-btn active" onclick="showPage('dashboard',this)">📊 Dashboard</button>
+    <button class="nav-btn" onclick="showPage('expenses',this)">📋 All Expenses</button>
+    <div class="nav-label" style="margin-top:16px;">Months</div>
+    <button class="nav-btn" onclick="showPage('month',this,'March')"><span class="dot" style="background:#34d399"></span>March</button>
+    <button class="nav-btn" onclick="showPage('month',this,'April')"><span class="dot" style="background:#6c8cff"></span>April</button>
+    <button class="nav-btn" onclick="showPage('month',this,'May')"><span class="dot" style="background:#fbbf24"></span>May</button>
+    <button class="nav-btn" onclick="showPage('month',this,'June')"><span class="dot" style="background:#f87171"></span>June</button>
+    <button class="nav-btn" onclick="showPage('month',this,'July')"><span class="dot" style="background:#a78bfa"></span>July</button>
+    <button class="nav-btn" onclick="showPage('month',this,'August')"><span class="dot" style="background:#fb923c"></span>August</button>
+    <button class="nav-btn" onclick="showPage('month',this,'September')"><span class="dot" style="background:#f472b6"></span>September</button>
+    <button class="nav-btn" onclick="showPage('month',this,'October')"><span class="dot" style="background:#34d399"></span>October</button>
+    <button class="nav-btn" onclick="showPage('month',this,'November')"><span class="dot" style="background:#6c8cff"></span>November</button>
+    <button class="nav-btn" onclick="showPage('month',this,'December')"><span class="dot" style="background:#fbbf24"></span>December</button>
+    <div class="sidebar-footer">
+      <button class="btn btn-green" style="width:100%;justify-content:center;" onclick="exportExcel()">⬇ Export Excel</button>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-title" id="topbarTitle">Dashboard</div>
+      <div class="topbar-right">
+        <div class="budget-row" style="margin:0">
+          <label>Monthly Budget ₹</label>
+          <input type="number" id="globalBudget" value="50000" min="0" step="1000" style="width:110px" onchange="saveBudget()"/>
+        </div>
+        <button class="btn btn-green" onclick="exportExcel()">⬇ Export Excel</button>
+      </div>
+    </div>
+
+    <!-- ── DASHBOARD PAGE ── -->
+    <div class="page active" id="page-dashboard">
+      <div id="dashAlert" class="alert"></div>
+
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <div class="charts-grid">
+        <div class="chart-card chart-wide">
+          <h3>Monthly Spending Overview</h3>
+          <div class="chart-wrap-tall"><canvas id="barMonthly"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3>Category Split — All Months</h3>
+          <div class="chart-wrap donut-wrap">
+            <canvas id="donutAll"></canvas>
+            <div class="donut-center">
+              <div class="big" id="donutTotal">₹0</div>
+              <div class="small">total</div>
+            </div>
+          </div>
+          <div class="cat-legend" id="catLegend"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Category Trends Month-over-Month</h3>
+          <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+        </div>
+        <div class="chart-card chart-wide">
+          <h3>Category % Share by Month</h3>
+          <div class="chart-wrap-tall"><canvas id="pctBar"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Summary table -->
+      <div class="summary-card">
+        <table id="summaryTable">
+          <thead>
+            <tr id="summaryHead"></tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── ALL EXPENSES PAGE ── -->
+    <div class="page" id="page-expenses">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3>All Expenses</h3>
+          <input type="text" id="searchAll" placeholder="Search…" style="width:180px" oninput="renderAllTable()"/>
+          <select id="filterCatAll" onchange="renderAllTable()">
+            <option value="">All categories</option>
+          </select>
+          <select id="filterMonthAll" onchange="renderAllTable()">
+            <option value="">All months</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Month</th><th>Category</th><th>Description</th><th>Amount</th><th>Mode</th><th></th>
+            </tr></thead>
+            <tbody id="allExpBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MONTH PAGE ── -->
+    <div class="page" id="page-month">
+      <div id="monthAlert" class="alert"></div>
+
+      <div class="kpi-grid" id="monthKpi"></div>
+
+      <div class="add-form">
+        <h3>Add Expense</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="newDate" style="width:100%"/>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="newCat" style="width:100%"></select>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="newDesc" placeholder="e.g. Swiggy" style="width:100%"/>
+          </div>
+          <div class="form-group">
+            <label>Amount (₹)</label>
+            <input type="number" id="newAmt" placeholder="0.00" min="0" step="0.01" style="width:100%"/>
+          </div>
+          <div class="form-group">
+            <label>Mode</label>
+            <select id="newMode" style="width:100%">
+              <option>Online</option><option>Cash</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <button class="btn btn-primary" onclick="addExpense()" style="width:100%">+ Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3 id="monthChartTitle">Category Breakdown</h3>
+          <div class="chart-wrap donut-wrap">
+            <canvas id="monthDonut"></canvas>
+            <div class="donut-center">
+              <div class="big" id="monthDonutTotal">₹0</div>
+              <div class="small">this month</div>
+            </div>
+          </div>
+          <div class="cat-legend" id="monthCatLegend"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Daily Spending</h3>
+          <div class="chart-wrap"><canvas id="monthBar2"></canvas></div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <h3 id="monthTableTitle">Expenses</h3>
+          <input type="text" id="searchMonth" placeholder="Search…" style="width:160px" oninput="renderMonthTable()"/>
+          <select id="filterCatMonth" onchange="renderMonthTable()">
+            <option value="">All categories</option>
+          </select>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th>Mode</th><th></th>
+            </tr></thead>
+            <tbody id="monthExpBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// SEED DATA & CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const SEED = {"March": [{"date": "2026-03-01", "category": "Utilities", "description": "JioFiber", "amount": 470.82, "mode": "Online"}, {"date": "2026-03-01", "category": "Utilities", "description": "Amazon", "amount": 1050.35, "mode": "Online"}, {"date": "2026-03-03", "category": "Healthcare", "description": "Doctor's Fees", "amount": 500.0, "mode": "Online"}, {"date": "2026-03-04", "category": "Healthcare", "description": "Ensure", "amount": 1092.0, "mode": "Online"}, {"date": "2026-03-05", "category": "Food", "description": "Swiggy", "amount": 260.0, "mode": "Online"}, {"date": "2026-03-07", "category": "Food", "description": "Swiggy", "amount": 146.0, "mode": "Online"}, {"date": "2026-03-11", "category": "Healthcare", "description": "Medicine", "amount": 9151.67, "mode": "Online"}, {"date": "2026-03-10", "category": "Food", "description": "Reliance", "amount": 66.0, "mode": "Online"}, {"date": "2026-03-10", "category": "Rent", "description": "Home Loan", "amount": 12153.0, "mode": "Online"}, {"date": "2026-03-12", "category": "Utilities", "description": "Amazon", "amount": 1666.0, "mode": "Online"}, {"date": "2026-03-13", "category": "Food", "description": "Reliance", "amount": 115.0, "mode": "Online"}, {"date": "2026-03-14", "category": "Food", "description": "Fish", "amount": 250.0, "mode": "Cash"}, {"date": "2026-03-14", "category": "Food", "description": "Vegetables", "amount": 500.0, "mode": "Cash"}, {"date": "2026-03-19", "category": "Food", "description": "Pulses, Rice, Tea", "amount": 790.0, "mode": "Cash"}, {"date": "2026-03-20", "category": "Food", "description": "Vegetables", "amount": 85.0, "mode": "Cash"}, {"date": "2026-03-20", "category": "Food", "description": "Reliance", "amount": 431.0, "mode": "Online"}, {"date": "2026-03-20", "category": "Food", "description": "Fruits", "amount": 185.0, "mode": "Cash"}, {"date": "2026-03-21", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}, {"date": "2026-03-21", "category": "Food", "description": "Vegetables", "amount": 20.0, "mode": "Cash"}, {"date": "2026-03-23", "category": "Utilities", "description": "Flowers", "amount": 40.0, "mode": "Cash"}, {"date": "2026-03-23", "category": "Food", "description": "Milk", "amount": 33.0, "mode": "Cash"}, {"date": "2026-03-23", "category": "Food", "description": "Fish", "amount": 100.0, "mode": "Cash"}, {"date": "2026-03-23", "category": "Food", "description": "Vegetables", "amount": 115.0, "mode": "Cash"}, {"date": "2026-03-23", "category": "Food", "description": "Egg", "amount": 78.0, "mode": "Cash"}, {"date": "2026-03-23", "category": "Food", "description": "Fruits", "amount": 80.0, "mode": "Cash"}, {"date": "2026-03-26", "category": "Utilities", "description": "Flowers", "amount": 50.0, "mode": "Cash"}, {"date": "2026-03-26", "category": "Food", "description": "Milk", "amount": 105.0, "mode": "Cash"}, {"date": "2026-03-26", "category": "Food", "description": "Vegetables", "amount": 210.0, "mode": "Cash"}, {"date": "2026-03-26", "category": "Utilities", "description": "Ponjika", "amount": 60.0, "mode": "Cash"}, {"date": "2026-03-26", "category": "Food", "description": "Fruits", "amount": 100.0, "mode": "Cash"}, {"date": "2026-03-26", "category": "Food", "description": "Sweets", "amount": 40.0, "mode": "Online"}, {"date": "2026-03-27", "category": "Food", "description": "Fish", "amount": 200.0, "mode": "Cash"}, {"date": "2026-03-27", "category": "Food", "description": "Vegetables", "amount": 105.0, "mode": "Cash"}, {"date": "2026-03-29", "category": "Healthcare", "description": "Medicine", "amount": 37.0, "mode": "Cash"}, {"date": "2026-03-29", "category": "Food", "description": "Vegetables", "amount": 20.0, "mode": "Cash"}, {"date": "2026-03-29", "category": "Food", "description": "Milk", "amount": 66.0, "mode": "Cash"}, {"date": "2026-03-29", "category": "Food", "description": "Fruits", "amount": 100.0, "mode": "Cash"}], "April": [{"date": "2026-04-01", "category": "Food", "description": "Chicken", "amount": 200.0, "mode": "Cash"}, {"date": "2026-04-02", "category": "Utilities", "description": "Flowers", "amount": 40.0, "mode": "Cash"}, {"date": "2026-04-03", "category": "Food", "description": "Fruits", "amount": 200.0, "mode": "Cash"}, {"date": "2026-04-03", "category": "Food", "description": "Vegetables", "amount": 110.0, "mode": "Cash"}, {"date": "2026-04-03", "category": "Food", "description": "Ghee", "amount": 400.0, "mode": "Cash"}, {"date": "2026-04-03", "category": "Food", "description": "Sweets", "amount": 72.0, "mode": "Cash"}, {"date": "2026-04-03", "category": "Food", "description": "Milk", "amount": 82.5, "mode": "Online"}, {"date": "2026-04-04", "category": "Misc", "description": "Movie", "amount": 170.0, "mode": "Online"}, {"date": "2026-04-13", "category": "Rent", "description": "Home Loan", "amount": 12153.0, "mode": "Online"}, {"date": "2026-04-06", "category": "Food", "description": "Fish", "amount": 320.0, "mode": "Cash"}, {"date": "2026-04-06", "category": "Food", "description": "Milk", "amount": 66.0, "mode": "Cash"}, {"date": "2026-04-06", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}, {"date": "2026-04-05", "category": "Misc", "description": "Food", "amount": 727.0, "mode": "Online"}, {"date": "2026-04-08", "category": "Food", "description": "Milk", "amount": 107.2, "mode": "Online"}, {"date": "2026-04-08", "category": "Utilities", "description": "Flowers", "amount": 40.0, "mode": "Cash"}, {"date": "2026-04-09", "category": "Utilities", "description": "JioFiber", "amount": 470.82, "mode": "Online"}, {"date": "2026-04-09", "category": "Utilities", "description": "Xoom Policy", "amount": 1493.0, "mode": "Online"}, {"date": "2026-04-10", "category": "Utilities", "description": "AC Installation", "amount": 1500.0, "mode": "Cash"}, {"date": "2026-04-10", "category": "Food", "description": "Vegetables", "amount": 42.0, "mode": "Cash"}, {"date": "2026-04-10", "category": "Food", "description": "Milk", "amount": 66.0, "mode": "Cash"}, {"date": "2026-04-10", "category": "Food", "description": "Gobindo Bhog Rice", "amount": 80.0, "mode": "Cash"}, {"date": "2026-04-11", "category": "Food", "description": "Fruits", "amount": 25.0, "mode": "Cash"}, {"date": "2026-04-11", "category": "Food", "description": "Vegetables", "amount": 160.0, "mode": "Cash"}, {"date": "2026-04-11", "category": "Food", "description": "Fruits", "amount": 50.0, "mode": "Cash"}, {"date": "2026-04-11", "category": "Misc", "description": "Food", "amount": 727.0, "mode": "Cash"}, {"date": "2026-04-11", "category": "Utilities", "description": "Flowers", "amount": 40.0, "mode": "Cash"}, {"date": "2026-04-12", "category": "Food", "description": "Spices", "amount": 43.0, "mode": "Cash"}, {"date": "2026-04-12", "category": "Food", "description": "Fruits", "amount": 165.0, "mode": "Cash"}, {"date": "2026-04-12", "category": "Food", "description": "Reliance", "amount": 207.0, "mode": "Online"}, {"date": "2026-04-13", "category": "Utilities", "description": "Pollution 2 Wheeler", "amount": 100.0, "mode": "Cash"}, {"date": "2026-04-13", "category": "Utilities", "description": "Petrol", "amount": 344.0, "mode": "Online"}, {"date": "2026-04-12", "category": "Misc", "description": "Dhoopkathi", "amount": 130.0, "mode": "Online"}, {"date": "2026-04-12", "category": "Food", "description": "Mayapur Prasad", "amount": 100.0, "mode": "Online"}, {"date": "2026-04-12", "category": "Misc", "description": "Day Out", "amount": 1600.0, "mode": "Online"}, {"date": "2026-04-16", "category": "Utilities", "description": "Amazon", "amount": 1139.0, "mode": "Online"}, {"date": "2026-04-18", "category": "Utilities", "description": "Flipkart", "amount": 1057.0, "mode": "Online"}, {"date": "2026-04-18", "category": "Food", "description": "Dhokla", "amount": 120.0, "mode": "Online"}, {"date": "2026-04-15", "category": "Healthcare", "description": "Medicine", "amount": 5001.0, "mode": "Online"}, {"date": "2026-04-18", "category": "Utilities", "description": "Flowers", "amount": 20.0, "mode": "Cash"}, {"date": "2026-04-18", "category": "Utilities", "description": "Flipkart", "amount": 570.0, "mode": "Online"}, {"date": "2026-04-18", "category": "Food", "description": "Dhokla", "amount": 120.0, "mode": "Online"}, {"date": "2026-04-21", "category": "Utilities", "description": "Petrol", "amount": 373.0, "mode": "Online"}, {"date": "2026-04-22", "category": "Food", "description": "Milk", "amount": 58.0, "mode": "Online"}, {"date": "2026-04-22", "category": "Utilities", "description": "Flowers+Sweets", "amount": 90.0, "mode": "Cash"}, {"date": "2026-04-23", "category": "Food", "description": "Vegetables", "amount": 100.0, "mode": "Cash"}, {"date": "2026-04-23", "category": "Food", "description": "Fish", "amount": 100.0, "mode": "Cash"}, {"date": "2026-04-23", "category": "Food", "description": "Fruits", "amount": 100.0, "mode": "Cash"}, {"date": "2026-04-24", "category": "Misc", "description": "Ankit Marriage", "amount": 10000.0, "mode": "Online"}, {"date": "2026-04-25", "category": "Food", "description": "Reliance", "amount": 648.0, "mode": "Online"}, {"date": "2026-04-25", "category": "Utilities", "description": "Petrol", "amount": 343.0, "mode": "Online"}, {"date": "2026-04-26", "category": "Food", "description": "Vegetables", "amount": 165.0, "mode": "Cash"}, {"date": "2026-04-27", "category": "Food", "description": "Chicken+Eggs", "amount": 293.0, "mode": "Cash"}, {"date": "2026-04-26", "category": "Food", "description": "Fruits", "amount": 100.0, "mode": "Cash"}, {"date": "2026-04-26", "category": "Utilities", "description": "Flowers", "amount": 40.0, "mode": "Cash"}, {"date": "2026-04-28", "category": "Utilities", "description": "Flowers", "amount": 10.0, "mode": "Cash"}, {"date": "2026-04-28", "category": "Food", "description": "Curd", "amount": 60.0, "mode": "Cash"}, {"date": "2026-04-23", "category": "Food", "description": "Reliance", "amount": 126.0, "mode": "Cash"}], "May": [{"date": "2026-05-01", "category": "Misc", "description": "Kali Puja", "amount": 212.0, "mode": "Cash"}, {"date": "2026-05-02", "category": "Food", "description": "Vegetables", "amount": 170.0, "mode": "Online"}, {"date": "2026-05-02", "category": "Food", "description": "Fruits", "amount": 65.0, "mode": "Online"}, {"date": "2026-05-03", "category": "Utilities", "description": "Flipkart", "amount": 829.0, "mode": "Online"}, {"date": "2026-05-03", "category": "Food", "description": "Vegetables+Fish", "amount": 165.0, "mode": "Cash"}, {"date": "2026-05-03", "category": "Food", "description": "Fruits", "amount": 100.0, "mode": "Cash"}, {"date": "2026-05-04", "category": "Utilities", "description": "Flowers", "amount": 20.0, "mode": "Cash"}, {"date": "2026-05-06", "category": "Utilities", "description": "Flowers", "amount": 50.0, "mode": "Cash"}, {"date": "2026-05-06", "category": "Food", "description": "Milk", "amount": 66.0, "mode": "Online"}, {"date": "2026-05-08", "category": "Food", "description": "Vegetables", "amount": 290.0, "mode": "Cash"}, {"date": "2026-05-03", "category": "Utilities", "description": "Flipkart", "amount": 4146.0, "mode": "Online"}, {"date": "2026-05-03", "category": "Food", "description": "Milk+Biscuits", "amount": 100.0, "mode": "Online"}, {"date": "2026-05-09", "category": "Food", "description": "Vegetables+Fruits", "amount": 90.0, "mode": "Cash"}, {"date": "2026-05-09", "category": "Food", "description": "Fish", "amount": 410.0, "mode": "Online"}, {"date": "2026-05-09", "category": "Utilities", "description": "Petrol", "amount": 328.0, "mode": "Online"}, {"date": "2026-05-09", "category": "Food", "description": "Spices", "amount": 314.0, "mode": "Cash"}, {"date": "2026-05-09", "category": "Food", "description": "Sweets", "amount": 80.0, "mode": "Cash"}, {"date": "2026-05-10", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}, {"date": "2026-05-10", "category": "Rent", "description": "Home Loan", "amount": 12153.0, "mode": "Online"}, {"date": "2026-05-12", "category": "Food", "description": "Reliance", "amount": 344.0, "mode": "Online"}, {"date": "2026-05-12", "category": "Misc", "description": "F1", "amount": 2267.0, "mode": "Online"}, {"date": "2026-05-12", "category": "Utilities", "description": "Flowers", "amount": 50.0, "mode": "Cash"}, {"date": "2026-05-15", "category": "Food", "description": "Vegetables", "amount": 165.0, "mode": "Online"}, {"date": "2026-05-15", "category": "Food", "description": "Fruits", "amount": 240.0, "mode": "Online"}, {"date": "2026-05-15", "category": "Food", "description": "Reliance", "amount": 66.0, "mode": "Online"}, {"date": "2026-05-15", "category": "Healthcare", "description": "Medicine", "amount": 293.0, "mode": "Online"}, {"date": "2026-05-15", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}, {"date": "2026-05-17", "category": "Food", "description": "Fish", "amount": 500.0, "mode": "Online"}, {"date": "2026-05-17", "category": "Misc", "description": "Transport", "amount": 1235.0, "mode": "Online"}, {"date": "2026-05-17", "category": "Healthcare", "description": "Doctor", "amount": 1500.0, "mode": "Cash"}, {"date": "2026-05-17", "category": "Healthcare", "description": "Medicine", "amount": 8450.0, "mode": "Online"}, {"date": "2026-05-20", "category": "Food", "description": "Vegetables+Egg", "amount": 163.0, "mode": "Cash"}, {"date": "2026-05-19", "category": "Food", "description": "Reliance", "amount": 66.0, "mode": "Online"}, {"date": "2026-05-22", "category": "Food", "description": "Vegetables", "amount": 80.0, "mode": "Cash"}, {"date": "2026-05-22", "category": "Food", "description": "Fruits", "amount": 80.0, "mode": "Cash"}, {"date": "2026-05-28", "category": "Food", "description": "Fruits+Egg", "amount": 195.0, "mode": "Cash"}, {"date": "2026-05-28", "category": "Food", "description": "Flipkart", "amount": 677.0, "mode": "Online"}, {"date": "2026-05-22", "category": "Healthcare", "description": "Arnica", "amount": 45.0, "mode": "Cash"}, {"date": "2026-05-30", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}, {"date": "2026-05-30", "category": "Food", "description": "Fruits", "amount": 120.0, "mode": "Cash"}, {"date": "2026-05-26", "category": "Food", "description": "Vegetables", "amount": 128.0, "mode": "Cash"}, {"date": "2026-05-26", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}], "June": [{"date": "2026-06-01", "category": "Food", "description": "Fruits", "amount": 210.0, "mode": "Cash"}, {"date": "2026-06-01", "category": "Food", "description": "Vegetables", "amount": 70.0, "mode": "Cash"}, {"date": "2026-06-01", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}, {"date": "2026-06-01", "category": "Food", "description": "Milk", "amount": 66.0, "mode": "Online"}, {"date": "2026-06-03", "category": "Food", "description": "Fish+Chicken", "amount": 300.0, "mode": "Cash"}, {"date": "2026-06-03", "category": "Food", "description": "Vegetables+Fruits", "amount": 150.0, "mode": "Cash"}, {"date": "2026-06-03", "category": "Utilities", "description": "Flowers", "amount": 30.0, "mode": "Cash"}, {"date": "2026-06-04", "category": "Food", "description": "Vegetables", "amount": 220.0, "mode": "Cash"}, {"date": "2026-06-05", "category": "Food", "description": "Milk", "amount": 249.0, "mode": "Online"}, {"date": "2026-06-04", "category": "Utilities", "description": "Petrol", "amount": 357.0, "mode": "Online"}, {"date": "2026-06-06", "category": "Food", "description": "Egg+Fruits", "amount": 250.0, "mode": "Cash"}, {"date": "2026-06-07", "category": "Rent", "description": "Home Loan", "amount": 12153.0, "mode": "Online"}, {"date": "2026-06-01", "category": "Food", "description": "Milk", "amount": 66.0, "mode": "Online"}, {"date": "2026-06-01", "category": "Utilities", "description": "Flowers", "amount": 50.0, "mode": "Cash"}, {"date": "2026-06-09", "category": "Utilities", "description": "JioFiber", "amount": 470.82, "mode": "Online"}]};
+
+const MONTHS = ['March','April','May','June','July','August','September','October','November','December'];
+const CATS   = ['Food','Utilities','Healthcare','Rent','Misc','Transport','Shopping','Entertainment'];
+const CAT_COLOR = {
+  Food:'#34d399', Utilities:'#fbbf24', Healthcare:'#f87171',
+  Rent:'#6c8cff', Misc:'#94a3b8', Transport:'#fb923c',
+  Shopping:'#f472b6', Entertainment:'#a78bfa'
+};
+
+// ═══════════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════════
+const LS_KEY = 'budget_tracker_2026';
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  // First load — seed
+  const d = { expenses: {}, budget: 50000 };
+  MONTHS.forEach(m => d.expenses[m] = []);
+  Object.entries(SEED).forEach(([m,rows]) => { d.expenses[m] = rows.map((r,i) => ({...r, id: m+'_'+i})); });
+  saveData(d);
+  return d;
+}
+
+function saveData(d) {
+  localStorage.setItem(LS_KEY, JSON.stringify(d));
+}
+
+let DB = loadData();
+
+function allExpenses() {
+  return MONTHS.flatMap(m => (DB.expenses[m]||[]).map(e => ({...e, month: m})));
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
+const fmt = n => '₹' + (+n).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+function catBadge(cat) {
+  const c = CAT_COLOR[cat] || '#888';
+  return `<span class="cat-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">
+    <span style="width:6px;height:6px;background:${c};border-radius:50%;display:inline-block"></span>${cat}
+  </span>`;
+}
+
+function toast(msg, color='#34d399') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.borderColor = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function populateCatSelects() {
+  ['newCat','eCat','filterCatAll','filterCatMonth'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isFilter = id.startsWith('filter');
+    el.innerHTML = (isFilter ? '<option value="">All categories</option>' : '') +
+      CATS.map(c => `<option value="${c}">${c}</option>`).join('');
+  });
+  ['filterMonthAll'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = '<option value="">All months</option>' +
+      MONTHS.map(m => `<option value="${m}">${m}</option>`).join('');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+let currentMonth = 'March';
+let chartInstances = {};
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+function showPage(type, btn, month) {
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  if (type === 'dashboard') {
+    document.getElementById('page-dashboard').classList.add('active');
+    document.getElementById('topbarTitle').textContent = 'Dashboard';
+    renderDashboard();
+  } else if (type === 'expenses') {
+    document.getElementById('page-expenses').classList.add('active');
+    document.getElementById('topbarTitle').textContent = 'All Expenses';
+    renderAllTable();
+  } else if (type === 'month') {
+    currentMonth = month;
+    document.getElementById('page-month').classList.add('active');
+    document.getElementById('topbarTitle').textContent = month + ' 2026';
+    document.getElementById('monthChartTitle').textContent = month + ' — Category Breakdown';
+    document.getElementById('monthTableTitle').textContent = month + ' Expenses';
+    // Set default date to first of the month
+    const mIdx = MONTHS.indexOf(month);
+    const mNum = mIdx + 3 > 12 ? mIdx + 3 - 12 : mIdx + 3;
+    const yr = 2026;
+    const m2 = String(mNum).padStart(2,'0');
+    document.getElementById('newDate').value = `${yr}-${m2}-01`;
+    renderMonthPage();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function monthTotal(m) {
+  return (DB.expenses[m]||[]).reduce((s,e) => s + (+e.amount), 0);
+}
+function catTotalAll(cat) {
+  return MONTHS.reduce((s,m) => s + (DB.expenses[m]||[]).filter(e=>e.category===cat).reduce((a,e)=>a+(+e.amount),0), 0);
+}
+function catTotalMonth(m, cat) {
+  return (DB.expenses[m]||[]).filter(e=>e.category===cat).reduce((s,e)=>s+(+e.amount),0);
+}
+
+function renderDashboard() {
+  const budget = DB.budget || 50000;
+  const allExp = allExpenses();
+  const grandTotal = allExp.reduce((s,e) => s+(+e.amount), 0);
+  const avgMonthly = grandTotal / MONTHS.filter(m => (DB.expenses[m]||[]).length > 0).length || 0;
+  const highestM = MONTHS.reduce((a,b) => monthTotal(a) > monthTotal(b) ? a : b);
+  const cashTotal = allExp.filter(e=>e.mode==='Cash').reduce((s,e)=>s+(+e.amount),0);
+
+  // KPIs
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Grand Total (All Months)</div><div class="kpi-value blue">${fmt(grandTotal)}</div><div class="kpi-sub">${allExp.length} transactions</div></div>
+    <div class="kpi"><div class="kpi-label">Monthly Budget</div><div class="kpi-value">${fmt(budget)}</div><div class="kpi-sub">per month</div></div>
+    <div class="kpi"><div class="kpi-label">Avg Monthly Spend</div><div class="kpi-value amber">${fmt(avgMonthly)}</div><div class="kpi-sub">across active months</div></div>
+    <div class="kpi"><div class="kpi-label">Highest Month</div><div class="kpi-value red">${highestM}</div><div class="kpi-sub">${fmt(monthTotal(highestM))}</div></div>
+    <div class="kpi"><div class="kpi-label">Cash Spending</div><div class="kpi-value">${fmt(cashTotal)}</div><div class="kpi-sub">${grandTotal>0?Math.round(cashTotal/grandTotal*100):0}% of total</div></div>
+  `;
+
+  // Alert
+  const alert = document.getElementById('dashAlert');
+  const activeMonths = MONTHS.filter(m=>(DB.expenses[m]||[]).length>0);
+  const overBudget = activeMonths.filter(m=>monthTotal(m)>budget);
+  if (overBudget.length > 0) {
+    alert.className = 'alert danger'; alert.style.display='flex';
+    alert.innerHTML = `⚠ Over budget in: <strong>${overBudget.join(', ')}</strong>`;
+  } else { alert.style.display='none'; }
+
+  // Monthly bar chart
+  destroyChart('barMonthly');
+  chartInstances['barMonthly'] = new Chart(document.getElementById('barMonthly'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        {
+          label: 'Spent', data: MONTHS.map(monthTotal),
+          backgroundColor: MONTHS.map(m => monthTotal(m) > budget ? '#f87171cc' : '#6c8cffcc'),
+          borderRadius: 6, borderSkipped: false,
+        },
+        {
+          label: 'Budget', data: MONTHS.map(() => budget),
+          type: 'line', borderColor: '#fbbf24', borderWidth: 2,
+          borderDash: [6,4], pointRadius: 0, fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font: { family:'Inter', size:11 } } }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } } },
+      scales: {
+        x: { ticks: { color:'#64748b', font:{size:11} }, grid: { color:'#1e2235' } },
+        y: { ticks: { color:'#64748b', callback: v => '₹'+Math.round(v/1000)+'k', font:{size:11} }, grid: { color:'#1e2235' } }
+      }
+    }
+  });
+
+  // Donut - all categories
+  const catTotals = CATS.map(c => catTotalAll(c));
+  const catLabels = CATS;
+  destroyChart('donutAll');
+  chartInstances['donutAll'] = new Chart(document.getElementById('donutAll'), {
+    type: 'doughnut',
+    data: {
+      labels: catLabels,
+      datasets: [{ data: catTotals, backgroundColor: CATS.map(c=>CAT_COLOR[c]+'cc'), borderWidth: 2, borderColor: '#1a1d27', hoverOffset: 8 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.raw)} (${grandTotal>0?Math.round(ctx.raw/grandTotal*100):0}%)` } } }
+    }
+  });
+  document.getElementById('donutTotal').textContent = fmt(grandTotal);
+
+  // Cat legend
+  document.getElementById('catLegend').innerHTML = CATS.map((c,i) =>
+    `<div class="cat-pill"><span class="swatch" style="background:${CAT_COLOR[c]}"></span>${c} ${grandTotal>0?Math.round(catTotals[i]/grandTotal*100):0}%</div>`
+  ).join('');
+
+  // Line chart - category trends
+  destroyChart('lineChart');
+  const activeMths = MONTHS.filter(m=>(DB.expenses[m]||[]).length>0);
+  chartInstances['lineChart'] = new Chart(document.getElementById('lineChart'), {
+    type: 'line',
+    data: {
+      labels: activeMths,
+      datasets: CATS.map(cat => ({
+        label: cat,
+        data: activeMths.map(m => catTotalMonth(m, cat)),
+        borderColor: CAT_COLOR[cat],
+        backgroundColor: CAT_COLOR[cat]+'22',
+        borderWidth: 2, pointRadius: 4, tension: 0.4,
+        pointBackgroundColor: CAT_COLOR[cat],
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#94a3b8', font:{size:10}, boxWidth:10 } }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}` } } },
+      scales: {
+        x: { ticks: { color:'#64748b', font:{size:11} }, grid: { color:'#1e2235' } },
+        y: { ticks: { color:'#64748b', callback: v => '₹'+Math.round(v/1000)+'k', font:{size:11} }, grid: { color:'#1e2235' } }
+      }
+    }
+  });
+
+  // % stacked bar
+  destroyChart('pctBar');
+  chartInstances['pctBar'] = new Chart(document.getElementById('pctBar'), {
+    type: 'bar',
+    data: {
+      labels: MONTHS,
+      datasets: CATS.map(cat => ({
+        label: cat,
+        data: MONTHS.map(m => {
+          const mt = monthTotal(m); if (!mt) return 0;
+          return Math.round(catTotalMonth(m,cat)/mt*100);
+        }),
+        backgroundColor: CAT_COLOR[cat]+'cc',
+        borderRadius: 3, borderSkipped: false,
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color:'#94a3b8', font:{size:10}, boxWidth:10 } }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw}%` } } },
+      scales: {
+        x: { stacked:true, ticks:{color:'#64748b', font:{size:11}}, grid:{color:'#1e2235'} },
+        y: { stacked:true, max:100, ticks:{color:'#64748b', callback:v=>v+'%', font:{size:11}}, grid:{color:'#1e2235'} }
+      }
+    }
+  });
+
+  // Summary table
+  const thead = document.getElementById('summaryHead');
+  thead.innerHTML = '<th>Month</th>' + CATS.map(c=>`<th>${c}</th>`).join('') + '<th>Total</th>';
+  const tbody = document.getElementById('summaryBody');
+  let html = '';
+  MONTHS.forEach(m => {
+    const mt = monthTotal(m);
+    const overB = mt > budget;
+    html += `<tr><td style="font-weight:600;color:${overB?'var(--red)':'var(--text)'}">${m} ${overB?'⚠':''}</td>` +
+      CATS.map(cat => {
+        const v = catTotalMonth(m,cat);
+        return `<td class="amt" style="color:${v>0?CAT_COLOR[cat]:'var(--muted)'}">${v>0?fmt(v):'—'}</td>`;
+      }).join('') +
+      `<td class="amt" style="font-weight:600;color:${overB?'var(--red)':'var(--green)'}">${mt>0?fmt(mt):'—'}</td></tr>`;
+  });
+  // Totals row
+  html += `<tr style="background:rgba(108,140,255,.08);border-top:1px solid var(--border)">
+    <td style="font-weight:700;color:var(--accent)">TOTAL</td>` +
+    CATS.map(cat => `<td class="amt" style="font-weight:600;color:${CAT_COLOR[cat]}">${fmt(catTotalAll(cat))}</td>`).join('') +
+    `<td class="amt" style="font-weight:700;color:var(--accent)">${fmt(grandTotal)}</td></tr>`;
+  tbody.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// MONTH PAGE
+// ═══════════════════════════════════════════════════════════
+function renderMonthPage() {
+  const m = currentMonth;
+  const expenses = DB.expenses[m] || [];
+  const total = expenses.reduce((s,e) => s+(+e.amount), 0);
+  const budget = DB.budget || 50000;
+  const remain = budget - total;
+  const pct = Math.min(Math.round(total/budget*100), 100);
+  const barColor = total > budget ? '#f87171' : total > budget*0.8 ? '#fbbf24' : '#34d399';
+
+  // Alert
+  const alert = document.getElementById('monthAlert');
+  if (total > budget) {
+    alert.className = 'alert danger'; alert.style.display='flex';
+    alert.innerHTML = `⚠ Over budget by <strong>${fmt(Math.abs(remain))}</strong> this month!`;
+  } else if (remain < budget*0.2) {
+    alert.className = 'alert warn'; alert.style.display='flex';
+    alert.innerHTML = `⚠ Only <strong>${fmt(remain)}</strong> (${100-pct}%) remaining for ${m}.`;
+  } else { alert.style.display='none'; }
+
+  // KPIs
+  document.getElementById('monthKpi').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Total Spent</div><div class="kpi-value ${total>budget?'red':'green'}">${fmt(total)}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${barColor}"></div></div></div>
+    <div class="kpi"><div class="kpi-label">Budget</div><div class="kpi-value blue">${fmt(budget)}</div><div class="kpi-sub">monthly limit</div></div>
+    <div class="kpi"><div class="kpi-label">Remaining</div><div class="kpi-value ${remain<0?'red':remain<budget*0.2?'amber':'green'}">${fmt(Math.abs(remain))}</div><div class="kpi-sub">${remain<0?'over budget':pct+'% used'}</div></div>
+    <div class="kpi"><div class="kpi-label">Transactions</div><div class="kpi-value">${expenses.length}</div><div class="kpi-sub">entries this month</div></div>
+  `;
+
+  // Donut
+  const catData = CATS.map(c => expenses.filter(e=>e.category===c).reduce((s,e)=>s+(+e.amount),0));
+  destroyChart('monthDonut');
+  chartInstances['monthDonut'] = new Chart(document.getElementById('monthDonut'), {
+    type: 'doughnut',
+    data: {
+      labels: CATS,
+      datasets: [{ data: catData, backgroundColor: CATS.map(c=>CAT_COLOR[c]+'cc'), borderWidth:2, borderColor:'#1a1d27', hoverOffset:6 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'60%',
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt(ctx.raw)} (${total>0?Math.round(ctx.raw/total*100):0}%)`}} }
+    }
+  });
+  document.getElementById('monthDonutTotal').textContent = fmt(total);
+  document.getElementById('monthCatLegend').innerHTML = CATS.map((c,i) =>
+    `<div class="cat-pill"><span class="swatch" style="background:${CAT_COLOR[c]}"></span>${c} ${total>0&&catData[i]>0?Math.round(catData[i]/total*100)+'%':''}</div>`
+  ).join('');
+
+  // Daily bar
+  const dailyMap = {};
+  expenses.forEach(e => { dailyMap[e.date] = (dailyMap[e.date]||0) + (+e.amount); });
+  const days = Object.keys(dailyMap).sort();
+  destroyChart('monthBar2');
+  chartInstances['monthBar2'] = new Chart(document.getElementById('monthBar2'), {
+    type: 'bar',
+    data: {
+      labels: days.map(d => d.slice(8)),
+      datasets: [{ label:'Daily', data:days.map(d=>dailyMap[d]), backgroundColor:'#6c8cff99', borderRadius:4, borderSkipped:false }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${fmt(ctx.raw)}`}} },
+      scales: {
+        x: { ticks:{color:'#64748b',font:{size:10}}, grid:{color:'#1e2235'} },
+        y: { ticks:{color:'#64748b',callback:v=>'₹'+Math.round(v/1000)+'k',font:{size:10}}, grid:{color:'#1e2235'} }
+      }
+    }
+  });
+
+  renderMonthTable();
+}
+
+function renderMonthTable() {
+  const m = currentMonth;
+  const q = (document.getElementById('searchMonth').value||'').toLowerCase();
+  const cf = document.getElementById('filterCatMonth').value;
+  let rows = (DB.expenses[m]||[]).filter(e =>
+    (!q || e.description.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)) &&
+    (!cf || e.category === cf)
+  ).sort((a,b) => a.date.localeCompare(b.date));
+
+  const tbody = document.getElementById('monthExpBody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">No expenses yet. Add one above.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(e => `
+    <tr>
+      <td>${e.date}</td>
+      <td>${catBadge(e.category)}</td>
+      <td>${e.description}</td>
+      <td class="amt">${fmt(e.amount)}</td>
+      <td><span class="mode-badge ${e.mode==='Online'?'mode-online':'mode-cash'}">${e.mode}</span></td>
+      <td style="display:flex;gap:4px">
+        <button class="edit-btn" onclick="openEdit('${m}','${e.id}')" title="Edit">✏</button>
+        <button class="del-btn" onclick="deleteExp('${m}','${e.id}')" title="Delete">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ALL EXPENSES TABLE
+// ═══════════════════════════════════════════════════════════
+function renderAllTable() {
+  const q = (document.getElementById('searchAll').value||'').toLowerCase();
+  const cf = document.getElementById('filterCatAll').value;
+  const mf = document.getElementById('filterMonthAll').value;
+  let rows = allExpenses().filter(e =>
+    (!q || e.description.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)) &&
+    (!cf || e.category === cf) && (!mf || e.month === mf)
+  ).sort((a,b) => a.date.localeCompare(b.date));
+
+  const tbody = document.getElementById('allExpBody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">No expenses match the filter.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(e => `
+    <tr>
+      <td>${e.date}</td>
+      <td style="color:var(--muted);font-size:12px">${e.month}</td>
+      <td>${catBadge(e.category)}</td>
+      <td>${e.description}</td>
+      <td class="amt">${fmt(e.amount)}</td>
+      <td><span class="mode-badge ${e.mode==='Online'?'mode-online':'mode-cash'}">${e.mode}</span></td>
+      <td style="display:flex;gap:4px">
+        <button class="edit-btn" onclick="openEdit('${e.month}','${e.id}')" title="Edit">✏</button>
+        <button class="del-btn" onclick="deleteExp('${e.month}','${e.id}')" title="Delete">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADD / DELETE / EDIT
+// ═══════════════════════════════════════════════════════════
+function addExpense() {
+  const date = document.getElementById('newDate').value;
+  const cat  = document.getElementById('newCat').value;
+  const desc = document.getElementById('newDesc').value.trim();
+  const amt  = parseFloat(document.getElementById('newAmt').value);
+  const mode = document.getElementById('newMode').value;
+  if (!date || !desc || isNaN(amt) || amt <= 0) { toast('Fill all fields correctly.', '#f87171'); return; }
+  const entry = { id: uid(), date, category: cat, description: desc, amount: amt, mode };
+  DB.expenses[currentMonth].push(entry);
+  saveData(DB);
+  document.getElementById('newDesc').value = '';
+  document.getElementById('newAmt').value = '';
+  toast('Expense added ✓');
+  renderMonthPage();
+}
+
+function deleteExp(month, id) {
+  DB.expenses[month] = DB.expenses[month].filter(e => e.id !== id);
+  saveData(DB);
+  toast('Deleted.', '#f87171');
+  if (document.getElementById('page-month').classList.contains('active')) renderMonthPage();
+  if (document.getElementById('page-expenses').classList.contains('active')) renderAllTable();
+  if (document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+}
+
+let editRef = null;
+function openEdit(month, id) {
+  const e = DB.expenses[month].find(x => x.id === id);
+  if (!e) return;
+  editRef = { month, id };
+  document.getElementById('eDate').value = e.date;
+  document.getElementById('eCat').value  = e.category;
+  document.getElementById('eDesc').value = e.description;
+  document.getElementById('eAmt').value  = e.amount;
+  document.getElementById('eMode').value = e.mode;
+  document.getElementById('editModal').classList.add('open');
+}
+function closeEdit() { document.getElementById('editModal').classList.remove('open'); editRef=null; }
+function saveEdit() {
+  if (!editRef) return;
+  const {month, id} = editRef;
+  const idx = DB.expenses[month].findIndex(e => e.id===id);
+  if (idx<0) return;
+  DB.expenses[month][idx] = {
+    ...DB.expenses[month][idx],
+    date: document.getElementById('eDate').value,
+    category: document.getElementById('eCat').value,
+    description: document.getElementById('eDesc').value.trim(),
+    amount: parseFloat(document.getElementById('eAmt').value),
+    mode: document.getElementById('eMode').value,
+  };
+  saveData(DB);
+  closeEdit();
+  toast('Updated ✓');
+  if (document.getElementById('page-month').classList.contains('active')) renderMonthPage();
+  if (document.getElementById('page-expenses').classList.contains('active')) renderAllTable();
+  if (document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+}
+
+function saveBudget() {
+  DB.budget = parseFloat(document.getElementById('globalBudget').value) || 50000;
+  saveData(DB);
+  if (document.getElementById('page-dashboard').classList.contains('active')) renderDashboard();
+  if (document.getElementById('page-month').classList.contains('active')) renderMonthPage();
+  toast('Budget updated ✓');
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXCEL EXPORT
+// ═══════════════════════════════════════════════════════════
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const budget = DB.budget || 50000;
+
+  // Dashboard summary sheet
+  const dashData = [['Month', ...CATS, 'Total', 'Budget', 'Variance']];
+  MONTHS.forEach(m => {
+    const mt = monthTotal(m);
+    const row = [m, ...CATS.map(c=>catTotalMonth(m,c)), mt, budget, budget-mt];
+    dashData.push(row);
+  });
+  dashData.push(['TOTAL', ...CATS.map(c=>catTotalAll(c)), MONTHS.reduce((s,m)=>s+monthTotal(m),0), budget*MONTHS.length, '']);
+  const wsD = XLSX.utils.aoa_to_sheet(dashData);
+  wsD['!cols'] = [{wch:12},...CATS.map(()=>({wch:13})),{wch:13},{wch:13},{wch:13}];
+  XLSX.utils.book_append_sheet(wb, wsD, 'Dashboard');
+
+  // Month sheets
+  MONTHS.forEach(m => {
+    const rows = (DB.expenses[m]||[]).sort((a,b)=>a.date.localeCompare(b.date));
+    const data = [['Date','Category','Description','Amount (₹)','Mode']];
+    rows.forEach(e => data.push([e.date, e.category, e.description, +e.amount, e.mode]));
+    data.push(['','','TOTAL', rows.reduce((s,e)=>s+(+e.amount),0),'']);
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{wch:12},{wch:14},{wch:30},{wch:14},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, m);
+  });
+
+  XLSX.writeFile(wb, 'Budget_Tracker_2026.xlsx');
+  toast('Excel downloaded ✓');
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('globalBudget').value = DB.budget || 50000;
+  populateCatSelects();
+  renderDashboard();
+  document.getElementById('editModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('editModal')) closeEdit();
+  });
+});
+</script>
+</body>
+</html>
